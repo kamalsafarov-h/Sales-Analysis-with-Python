@@ -1,0 +1,342 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+pd.set_option('display.max_columns', None)
+file=r"C:\Users\hp\Downloads\Sales Performance (2).xlsx"
+workers=pd.read_excel(file,sheet_name='workers')
+products=pd.read_excel(file,sheet_name='products')
+df=pd.ExcelFile(file)
+sheet=df.sheet_names
+sheet.remove("workers")
+sheet.remove("products")
+all_data=[]
+for i in sheet:
+    data=pd.read_excel(file,sheet_name=i)
+    all_data.append(data)
+all_data=pd.concat(all_data,ignore_index=True)
+# data opening---------------------------------------
+
+
+all_data["price"]=all_data["price"].astype(str)
+all_data["price"]=all_data["price"].str.replace("$","",regex=False).str.strip().astype(float)
+# print(all_data.head(10))
+# price replacing--------------------------------------------------------------------------------
+
+
+workers["full_name"]=workers["first_name"]+" "+workers["last_name"]
+workers.drop("first_name",axis=1,inplace=True)
+workers.drop("last_name",axis=1,inplace=True)
+# # full name creating-----------------------------------------------------------------------
+
+
+products["product_name"]=products["product_name"].str.upper()
+# # upper case product name--------------------------------------------------------------
+
+
+merged=all_data.merge(workers[["worker_id","region",'salary']],on="worker_id",how="left")
+Baki_sales=merged[merged["region"]=="Baki"]
+# print(Baki_sales.head(10))
+# # Baki sales------------------------------------------------------------------------------------------
+
+
+Count_price=all_data[(all_data["count"]<5) & (all_data["price"]>10)]
+# print(Count_price)
+# # filtering count and price------------------------------------------------------------------------------
+
+
+merged["month"]=merged["date"].dt.month
+# # merged month-------------------------------------------------------------------------------------------
+
+
+drop_duplicate = merged[['worker_id', 'product_id']].drop_duplicates()
+result = drop_duplicate.groupby('worker_id')['product_id'].count()
+# # drop duplicate----------------------------------------------------------------------------------------
+
+merged['total']=merged['price']*merged['count']
+# total---------------------------------------------------------------
+
+
+
+total_revenue=merged.groupby('worker_id').agg(ayli_gelir=("total","sum"))
+# print(total_revenue)
+# # revenue------------------------------------------------------------------------------
+
+
+average_revenue=merged.groupby("region").agg(average_revenue=("total","mean")).round(2)
+# #average_revenue by region---------------------------------------------------------------
+#
+
+
+merged=merged.merge(products[["product_id","category",'product_name']],on="product_id",how="left")
+category=merged.groupby("category").agg(sales_count=("count","sum"))
+# # category count------------------------------------------------------------------------------
+#
+#
+
+
+
+
+
+max_worker=workers.loc[workers["salary"].idxmax(),['full_name','salary']]
+# # max worker---------------------------------------------------------------------------------
+#
+#
+#
+
+
+
+grouping=merged.groupby('product_id').agg(sales=("total","sum")).reset_index()
+grouping['cumulative_percent']=grouping['sales'].cumsum()/grouping['sales'].sum()*100
+seksen=grouping[grouping['cumulative_percent']<80]
+# print(seksen.reset_index())
+# # cumulative analysis- first 80% sales---------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+#
+#
+merged['days']=merged['date'].dt.day_name()
+days_grouping=merged.groupby('days')['total'].sum().reset_index()
+# # weekdays
+#---------------------------------------------------------------------------------------
+
+
+fifty_azn=merged.loc[merged['total']>50,'product_id'].count()
+# # fifty azn upper product
+#-----------------------------------------------------------------------------------------
+
+mehsullar=merged.groupby('product_id')['store_id']
+pivot_df = merged.pivot_table(index='product_id',
+                             columns='store_id',
+                             values='price', # və ya 'total'
+                             aggfunc='mean').fillna(0).round(2)
+# -------------------------------------------------------------------
+#
+#
+result = merged.groupby(['product_id', 'store_id']).agg(average_price=('price','mean'))
+# # pivot table analysis
+#------------------------------------------------------------------------------------------------
+#
+#
+# # Visualization
+#
+#
+
+
+# # BARPLOT
+#
+regionlar=merged.groupby('region').agg(total_sales=("total","sum")).reset_index()
+plt.ticklabel_format(style='plain', axis='y')
+ax=sns.barplot(x='region', y='total_sales', data=regionlar)
+for p in ax.patches:
+    ax.annotate(format(p.get_height(), '.2f'),
+                (p.get_x() + p.get_width() / 2., p.get_height()),
+                ha = 'center', va = 'center',
+                xytext = (0, 9),
+                textcoords = 'offset points')
+plt.show()
+# --------------------------------------------------------------------------------------
+
+
+
+#
+#
+beverage=merged[merged['category']=="Beverage"]
+beverage_grouping=(beverage.groupby(['product_id','product_name','price'])
+                   .agg(quantity=('count','sum')).reset_index())
+chosen=beverage_grouping[beverage_grouping['product_id']=='pr046']
+ax=sns.scatterplot(x='price',y="quantity",data=chosen)
+plt.title(chosen['product_name'].iloc[0])
+
+plt.show()
+# -----------------------------------------------------------------------------------------
+
+
+
+
+
+# # vizual3
+#
+categories=merged.groupby('category').agg(sales=("total","sum"),).reset_index()
+categories['pay_faizi']=((categories['sales']/categories['sales'].sum())*100).round(2)
+# print(kateqoriya_sales)
+
+plt.pie(categories['pay_faizi'],labels=categories['category'],autopct='%1.1f%%')
+plt.title('Category_shares')
+plt.show()
+#----------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+merged['year']=merged['date'].dt.year
+ayliq_satis=merged.groupby(['year','month']).agg(monthly_sales=("total","sum")).reset_index()
+# print(ayliq_satis)
+ax=sns.lineplot(data=ayliq_satis,x=ayliq_satis['month'],y=ayliq_satis['monthly_sales'],marker='o')
+plt.title("Monthly_sales_trend_analysis")
+plt.ticklabel_format(style='plain', axis='y')
+plt.show()
+# -------------------------------------------------------------------------------------------------------------
+
+
+
+
+# # vizual5
+
+
+
+
+
+employees=merged.groupby('worker_id').agg(quantity=("count","sum"),
+                                        salary=('salary','max'),
+                                        total_sales=('total','sum')).reset_index()
+correl_data=employees[['total_sales','salary']].corr()
+sns.heatmap(data=correl_data,annot=False,cmap="YlOrRd")
+plt.show()
+#-----------------------------------------------------------------------------------------------
+
+
+
+pivot=merged.pivot_table(index='category',
+                         columns='region',
+                         values='total',
+                         aggfunc='sum').reset_index()
+# print(pivot)
+# ------------------------------------------------------------------------
+
+
+#
+
+monthly_growth=merged.groupby('month').agg(sales=("total","sum")).reset_index()
+monthly_growth['cumulative_sales']=monthly_growth['sales'].cumsum()
+# print(monthly_growth)
+#------------------------------------------------------------------------------------------
+#
+
+
+
+# print(merged['count'].head(50))
+merged.loc[merged['total']>=40,'Sales_category']="High"
+merged.loc[merged['total']>=20,'Sales_category']="Normal"
+merged.loc[merged['total']<20,'Sales_category']="Low"
+# print(merged)-----------------------------------------------------------------------------
+
+
+#
+#
+result=merged.groupby(['product_id','month']).agg(satis_sayi=('total','sum')).reset_index()
+result2=result.groupby('product_id').agg(satilan_ay=('month','count')).reset_index()
+# print(result2)--------------------------------------------------------------------------
+
+
+
+
+
+sales=merged.groupby('worker_id').agg(total=("total","sum")).reset_index()
+quantile1=sales['total'].quantile(0.25)
+quantile3=sales['total'].quantile(0.75)
+iqr=quantile3-quantile1
+outlier1=quantile1-1.5*iqr
+outlier2=quantile3+1.5*iqr
+outliers=sales[(sales['total']<outlier1) | (sales['total']>outlier2)]
+# print(outliers)--------------------------------------------------------------
+
+
+# Data science
+
+
+
+
+import scipy.stats as stats
+
+
+total_mean=merged['total'].mean()
+st_devation=merged['total'].std(axis=0)
+merged['z-score']=(merged['total']-total_mean)/st_devation
+
+high_limit=st_devation*3+total_mean
+low_limit=st_devation*(-3)+total_mean
+satislar2=merged[(merged['total']>high_limit) | (merged['total']<low_limit)]
+merged[('probability')]=stats.norm.cdf(merged['z-score'])*100
+print(merged[['worker_id','total','z-score','probability']])
+# ------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+sns.kdeplot(merged[('probability')],color='red')
+plt.figure(figsize=(10, 6))
+sns.kdeplot(merged['z-score'], fill=True, color="royalblue", bw_adjust=0.8)
+plt.axvline(0,color='k',linestyle='--',label='mean')
+plt.axvline(3,color='k',linestyle='--',label='+3sigma')
+plt.axvline(-3,color='k',linestyle='--',label='-3sigma')
+plt.yticks([])
+plt.ylabel('')
+ticks = [-3, -2, -1, 0, 1, 2, 3]
+labels = ['μ-3σ', 'μ-2σ', 'μ-σ', 'μ', 'μ+σ', 'μ+2σ', 'μ+3σ']
+plt.xticks(ticks, labels, fontsize=11, fontweight='bold')
+plt.title('Z-Score Distribution', fontsize=14)
+plt.xlabel('Standart Devation Points')
+plt.show()
+#----------------------------------------------------------------------------------------
+#
+grouping=merged.groupby('worker_id').agg(sales=("total","sum")).reset_index()
+grouping=grouping.merge(workers[['worker_id','salary']],on='worker_id',how='left')
+correlation=grouping[['sales','salary']].corr(method='pearson')
+# print(correlation)
+#--------------------------------------------------------------------------------------
+
+# h0=There is no significant difference between the sales of Baki and Quba
+# h1=There is a significant difference between the sales of Baki and Quba.
+baki=merged[merged['region']=='Baki']
+
+quba=merged[merged['region']=='Quba']
+t_stat,p_value = stats.ttest_ind(baki['total'], quba['total'], equal_var=False)
+if p_value < 0.05:
+    print('h0 is rejected-There is a significant difference between the sales of Baki and Quba.')
+else:
+    print('h0 is accepted-There is no significant difference between the sales of Baki and Quba')
+# -0-------------------------------------------------------------------------------------------------
+
+
+
+
+#
+# print(merged['total'].skew())
+#---------------------------------------------------------
+
+
+
+sns.regplot(data=merged,x='count',y='total',scatter_kws={'alpha':0.5},line_kws={'color':'red'})
+# plt.show()
+# #---------------------------------------------------------------------------------------------
+
+
+
+
+
+pivot_analysis = merged.pivot_table(index=['region', 'category'],
+                                    values='total',
+                                    aggfunc=['sum', 'mean']).reset_index()
+# print(pivot_analysis)------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
